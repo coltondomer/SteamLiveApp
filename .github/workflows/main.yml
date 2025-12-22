@@ -16,10 +16,11 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+          # We added libtool, libltdl-dev, and automake to fix the LT_SYS_SYMBOL_USCORE error
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool libltdl-dev pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
           pip install buildozer cython
-
+          
       - name: Build with Buildozer
         run: |
           # This command tells Buildozer to handle the SDK installation itself 
