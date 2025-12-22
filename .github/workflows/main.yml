@@ -5,10 +5,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Buildozer Action
-        # This is the official, case-sensitive community repo
         uses: kivy/buildozer-action@master
         with:
           workdir: .
