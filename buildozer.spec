@@ -15,7 +15,7 @@ source.dir = .
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,chardet,idna,pyjnius
+requirements = python3,kivy==2.3.0,requests,urllib3,certifi,chardet,idna,pyjnius,openssl
 
 # (list) Permissions
 android.permissions = INTERNET
