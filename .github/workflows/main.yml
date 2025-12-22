@@ -23,7 +23,7 @@ jobs:
 - name: Build with Buildozer
         run: |
           # This forces Buildozer to download and install the missing Android tools
-          yes | buildozer -v android debug
+          yes | buildozer -v android debu
         
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
