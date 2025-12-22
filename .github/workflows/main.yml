@@ -16,19 +16,18 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
-          # Standard library list for Ubuntu 22.04/24.04
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
           pip install buildozer cython
 
+      - name: Install Android SDK Tools (The Aidl Fix)
+        run: |
+          # This manually installs the exact tool Buildozer is missing
+          sudo apt-get install -y android-sdk
+          export ANDROID_HOME=/usr/lib/android-sdk
+          echo "y" | sdkmanager --sdk_root=$ANDROID_HOME "build-tools;33.0.0" "platform-tools" "platforms;android-33"
+
       - name: Build with Buildozer
         run: |
-          # Removed 'yes |' to fix the Broken Pipe error
-          # '-v' is used to see the full progress in the logs
+          # We use --profile to ensure a fresh environment
           buildozer -v android debug
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SteamApp-Package
-          path: bin/*.apk
