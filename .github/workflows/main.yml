@@ -16,20 +16,21 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
-          # Including all necessary build tools and libltdl for Autotools fixes
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool libltdl-dev pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
-          # KEY FIX: Pinning Cython to 0.29.33 fixes the "undeclared name: long" error
+          # KEY FIX: Force Cython 0.29.33 to handle the 'long' variable error
           pip install "Cython==0.29.33" buildozer virtualenv
+
+      - name: Prepare Build Environment
+        run: |
+          # Create the folder Buildozer was complaining about
+          mkdir -p .buildozer/android/platform
 
       - name: Build with Buildozer
         run: |
-          # Clean old failed build artifacts to prevent conflicts
-          buildozer android clean
-          # Start the build with verbose logging
+          # Use verbose mode (-v) to see everything happening
           buildozer -v android debug
         env:
-          # Automatically accept Google's SDK licenses
           APP_ANDROID_ACCEPT_SDK_LICENSE: "yes"
 
       - name: Upload Artifact
