@@ -16,15 +16,17 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
+          # Updated package list to avoid 'libtinfo5' error
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
           pip install buildozer cython
 
-- name: Build with Buildozer
+      - name: Build with Buildozer
         run: |
-          # This forces Buildozer to download and install the missing Android tools
-          yes | buildozer -v android debu
-        
+          # 'yes |' automatically accepts SDK licenses to prevent the Aidl crash
+          # '-v' provides detailed logs so we can see the progress
+          yes | buildozer -v android debug
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
