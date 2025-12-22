@@ -1,0 +1,20 @@
+name: Build Android APK
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build with Buildozer
+        uses: ArtemSerebrennkov/buildozer-action@v1
+        with:
+          workdir: .
+          buildozer_version: master
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: SteamApp-Package
+          path: bin/*.apk
