@@ -16,15 +16,15 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
-          # Updated package list to avoid 'libtinfo5' error
+          # Standard library list for Ubuntu 22.04/24.04
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
           pip install buildozer cython
 
-     - name: Build with Buildozer
+      - name: Build with Buildozer
         run: |
-          # We use -v for detailed logs and --profile for a clean setup
-          # This version removes 'yes |' to fix the Broken Pipe error
+          # Removed 'yes |' to fix the Broken Pipe error
+          # '-v' is used to see the full progress in the logs
           buildozer -v android debug
 
       - name: Upload Artifact
