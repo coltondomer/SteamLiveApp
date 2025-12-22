@@ -17,7 +17,7 @@ android.permissions = INTERNET, FOREGROUND_SERVICE
 services = SteamMonitor:service.py
 
 # Android SDK/NDK settings for GitHub Actions
-android.api = 31
+android.api = 33
 android.minapi = 21
 android.sdk = 33
 android.ndk = 25b
