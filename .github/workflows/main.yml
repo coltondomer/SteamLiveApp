@@ -21,11 +21,11 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Build with Buildozer
+     - name: Build with Buildozer
         run: |
-          # 'yes |' automatically accepts SDK licenses to prevent the Aidl crash
-          # '-v' provides detailed logs so we can see the progress
-          yes | buildozer -v android debug
+          # We use -v for detailed logs and --profile for a clean setup
+          # This version removes 'yes |' to fix the Broken Pipe error
+          buildozer -v android debug
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
