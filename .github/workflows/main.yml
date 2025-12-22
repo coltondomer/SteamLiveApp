@@ -20,14 +20,11 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Install Android SDK Tools (The Aidl Fix)
-        run: |
-          # This manually installs the exact tool Buildozer is missing
-          sudo apt-get install -y android-sdk
-          export ANDROID_HOME=/usr/lib/android-sdk
-          echo "y" | sdkmanager --sdk_root=$ANDROID_HOME "build-tools;33.0.0" "platform-tools" "platforms;android-33"
-
       - name: Build with Buildozer
         run: |
-          # We use --profile to ensure a fresh environment
+          # This command tells Buildozer to handle the SDK installation itself 
+          # but in a 'verbose' mode so it doesn't hang on the Aidl check.
           buildozer -v android debug
+        env:
+          # This forces the build to accept all Android licenses automatically
+          APP_ANDROID_ACCEPT_SDK_LICENSE: "yes"
