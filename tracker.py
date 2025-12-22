@@ -1,17 +1,23 @@
-import json
+import os
+# This MUST go at the very top, before any other Kivy imports
+from kivy.config import Config
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.textinput import TextInput
-from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
-from kivy.uix.image import AsyncImage  # New: For web images
-from kivy.network.urlrequest import UrlRequest
-from kivy.clock import Clock
-from kivy.graphics import Color, Line, RoundedRectangle, SmoothLine, Rectangle
-import webbrowser
+# ... (rest of your imports)
+
+# Add this to handle the Android Back Button
+from kivy.core.window import Window
+
+class SteamApp(App):
+    def build(self):
+        # Allow the back button to close the app (standard Android behavior)
+        Window.bind(on_keyboard=self.on_key)
+        # ... (rest of your build logic)
+
+    def on_key(self, window, key, *args):
+        if key == 27:  # 27 is the 'Back' key on Android
+            return False # This will close the app or go back a screen
 
 # --- STEAM COLOR PALETTE ---
 S_DARK_BG = (0.1, 0.12, 0.15, 1)
@@ -204,4 +210,5 @@ class SteamApp(App):
 
 
 if __name__ == '__main__':
+
     SteamApp().run()
