@@ -31,3 +31,8 @@ android.ndk = 25b
 
 # (int) Log level
 log_level = 2
+
+requirements = python3,kivy==2.3.0,requests,urllib3,certifi,chardet,idna,pyjnius,openssl
+
+# Android permissions
+android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
