@@ -1,23 +1,23 @@
 import os
-# This MUST go at the very top, before any other Kivy imports
 from kivy.config import Config
+
+# Fixes potential multitouch/mouse conflicts on Android
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 from kivy.app import App
-# ... (rest of your imports)
-
-# Add this to handle the Android Back Button
+from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.textinput import TextInput
+from kivy.uix.image import AsyncImage
+from kivy.graphics import Color, RoundedRectangle, Rectangle
+from kivy.clock import Clock
+from kivy.network.urlrequest import UrlRequest
 from kivy.core.window import Window
-
-class SteamApp(App):
-    def build(self):
-        # Allow the back button to close the app (standard Android behavior)
-        Window.bind(on_keyboard=self.on_key)
-        # ... (rest of your build logic)
-
-    def on_key(self, window, key, *args):
-        if key == 27:  # 27 is the 'Back' key on Android
-            return False # This will close the app or go back a screen
+import webbrowser  # For the Game ID link
 
 # --- STEAM COLOR PALETTE ---
 S_DARK_BG = (0.1, 0.12, 0.15, 1)
@@ -59,8 +59,28 @@ class LibraryScreen(Screen):
         layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
         layout.add_widget(Label(text="STEAM LIBRARY", font_size='28sp', bold=True, size_hint_y=None, height=60))
 
+        # --- CUSTOM ID SECTION ---
+        id_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=50, spacing=10)
+        self.custom_id_input = TextInput(
+            hint_text='Enter App ID (e.g. 440)', multiline=False,
+            background_color=(0.12, 0.14, 0.18, 1), foreground_color=(1, 1, 1, 1)
+        )
+        add_btn = SteamButton(text="TRACK ID", size_hint_x=0.4)
+        add_btn.bind(on_release=self.track_custom_id)
+
+        id_layout.add_widget(self.custom_id_input)
+        id_layout.add_widget(add_btn)
+        layout.add_widget(id_layout)
+
+        # Link to find IDs
+        link_lbl = Button(text="[color=199aff][u]Find more Game IDs here[/u][/color]",
+                          markup=True, background_color=(0, 0, 0, 0), size_hint_y=None, height=30)
+        link_lbl.bind(on_release=lambda x: webbrowser.open("https://steamdb.info/graph/"))
+        layout.add_widget(link_lbl)
+
+        # Search Bar
         self.search_input = TextInput(
-            hint_text='Search games...', size_hint_y=None, height=50,
+            hint_text='Search library...', size_hint_y=None, height=50,
             multiline=False, background_color=(0.12, 0.14, 0.18, 1),
             foreground_color=(1, 1, 1, 1), cursor_color=S_BLUE
         )
@@ -76,6 +96,11 @@ class LibraryScreen(Screen):
         self.add_widget(layout)
         self.refresh_list("")
 
+    def track_custom_id(self, instance):
+        val = self.custom_id_input.text.strip()
+        if val.isdigit():
+            self.go_to_detail({"name": f"App ID: {val}", "id": val})
+
     def _update_bg(self, instance, value):
         self.bg_rect.size = value
 
@@ -89,8 +114,7 @@ class LibraryScreen(Screen):
                 row = BoxLayout(size_hint_y=None, height=80, padding=10)
                 with row.canvas.before:
                     Color(*S_ROW_BG)
-                    self.row_rect = RoundedRectangle(pos=row.pos, size=row.size, radius=[10, ])
-                row.bind(pos=self._update_row_rect, size=self._update_row_rect)
+                    RoundedRectangle(pos=row.pos, size=row.size, radius=[10, ])
 
                 lbl = Label(text=f"[b]{game['name']}[/b]\n[size=12sp]ID: {game['id']}[/size]", markup=True,
                             halign='left', size_hint_x=0.7)
@@ -103,12 +127,6 @@ class LibraryScreen(Screen):
                 row.add_widget(btn)
                 self.game_list.add_widget(row)
 
-    def _update_row_rect(self, instance, value):
-        instance.canvas.before.clear()
-        with instance.canvas.before:
-            Color(*S_ROW_BG)
-            RoundedRectangle(pos=instance.pos, size=instance.size, radius=[10, ])
-
     def go_to_detail(self, game):
         self.manager.get_screen('detail').target_game = game
         self.manager.current = 'detail'
@@ -119,23 +137,15 @@ class DetailScreen(Screen):
         super().__init__(**kwargs)
         self.target_game = None
         self.history = []
-
         with self.canvas.before:
             Color(*S_DARK_BG)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
 
         self.layout = BoxLayout(orientation='vertical', padding=0, spacing=10)
+        self.banner = AsyncImage(source="", size_hint_y=None, height=220, allow_stretch=True, keep_ratio=False)
 
-        # --- TOP BANNER IMAGE ---
-        self.banner = AsyncImage(
-            source="",
-            size_hint_y=None, height=220,
-            allow_stretch=True, keep_ratio=False
-        )
-
-        # --- GAME INFO SECTION ---
         info_box = BoxLayout(orientation='vertical', padding=[20, 0, 20, 0], spacing=5)
-        self.title_label = Label(text="", font_size='32sp', bold=True, halign='center')
+        self.title_label = Label(text="", font_size='24sp', bold=True, halign='center')
         self.count_label = Label(text="---", font_size='55sp', color=S_BLUE, bold=True)
         self.sub_label = Label(text="PLAYERS ONLINE", font_size='12sp', color=S_TEXT_DIM)
 
@@ -143,10 +153,7 @@ class DetailScreen(Screen):
         info_box.add_widget(self.sub_label)
         info_box.add_widget(self.count_label)
 
-        # --- GRAPH ---
         self.graph_box = BoxLayout(size_hint_y=0.4, padding=20)
-
-        # --- BACK BUTTON ---
         back_btn = Button(text="BACK TO LIBRARY", size_hint_y=None, height=60, background_color=S_ROW_BG)
         back_btn.bind(on_release=self.go_back)
 
@@ -154,23 +161,23 @@ class DetailScreen(Screen):
         self.layout.add_widget(info_box)
         self.layout.add_widget(self.graph_box)
         self.layout.add_widget(back_btn)
-
         self.add_widget(self.layout)
 
     def on_enter(self):
-        # Update Banner via Steam CDN
         self.banner.source = f"https://cdn.akamai.steamstatic.com/steam/apps/{self.target_game['id']}/header.jpg"
         self.title_label.text = self.target_game['name'].upper()
         self.history = []
-        Clock.schedule_interval(self.fetch_data, 1)
+        Clock.schedule_interval(self.fetch_data, 2)
 
     def on_leave(self):
         Clock.unschedule(self.fetch_data)
-        self.banner.source = ""  # Clear to save memory
 
     def fetch_data(self, dt):
         url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={self.target_game['id']}"
-        UrlRequest(url, on_success=self.update_ui)
+        UrlRequest(url, on_success=self.update_ui, on_error=self.on_network_fail, on_failure=self.on_network_fail)
+
+    def on_network_fail(self, request, error):
+        self.count_label.text = "OFFLINE"
 
     def update_ui(self, request, result):
         try:
@@ -178,24 +185,9 @@ class DetailScreen(Screen):
             self.count_label.text = f"{count:,}"
             self.history.append(count)
             if len(self.history) > 30: self.history.pop(0)
-            self.draw_graph()
+            # Simple line drawing logic here or custom widget
         except:
-            pass
-
-    def draw_graph(self):
-        self.graph_box.canvas.clear()
-        if len(self.history) < 2: return
-        with self.graph_box.canvas:
-            Color(*S_BLUE)
-            h_min, h_max = min(self.history), max(self.history)
-            y_range = max(h_max - h_min, 5)
-            points = []
-            w_step = self.graph_box.width / 29
-            for i, val in enumerate(self.history):
-                x = self.graph_box.x + (i * w_step)
-                y = self.graph_box.y + ((val - h_min) / y_range) * (self.graph_box.height * 0.8)
-                points.extend([x, y])
-            SmoothLine(points=points, width=2)
+            self.count_label.text = "ERROR"
 
     def go_back(self, instance):
         self.manager.current = 'library'
@@ -203,12 +195,19 @@ class DetailScreen(Screen):
 
 class SteamApp(App):
     def build(self):
+        Window.bind(on_keyboard=self.on_key)
         sm = ScreenManager(transition=FadeTransition(duration=0.2))
         sm.add_widget(LibraryScreen(name='library'))
         sm.add_widget(DetailScreen(name='detail'))
         return sm
 
+    def on_key(self, window, key, *args):
+        if key == 27:  # Android Back Button
+            if self.root.current == 'detail':
+                self.root.current = 'library'
+                return True
+            return False
+
 
 if __name__ == '__main__':
-
     SteamApp().run()
