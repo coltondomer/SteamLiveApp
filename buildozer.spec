@@ -1,50 +1,58 @@
 [app]
 # (str) Title of your application
-title = Steam Live Tracker
+title = Steam Live Dashboard
 
 # (str) Package name
-package.name = steamtracker
+package.name = steamlive
 
-# (str) Package domain
-package.domain = org.coltondomer
+# (str) Package domain (needed for android packaging)
+package.domain = org.gamertools
 
 # (str) Source code where the main.py live
 source.dir = .
 
-# (str) Source files to include (let's make sure we include the json file)
-source.include_exts = py,png,jpg,kv,atlas,json
+# (list) Source files to include (let empty to include all the files)
+source.include_exts = py,png,jpg,json
 
-# (str) Application version
-version = 0.1
+# (str) Application versioning
+version = 1.0.0
 
 # (list) Application requirements
-# Added openssl for HTTPS and certifi for secure Steam API connections
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,chardet,idna,pyjnius,openssl
+# IMPORTANT: These must match the libraries used in the code
+requirements = python3,kivy==2.3.0,requests,urllib3,certifi,plyer
 
-# (str) Custom source folders for requirements
-# android.permissions: INTERNET is for Steam data, STORAGE is for Favorites/Friends
-android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
+# (str) Custom source file for application icon
+# Make sure your image is named icon.png in the same folder!
+icon.filename = icon.png
 
-# (int) Target Android API (API 33 is modern and stable)
+# (str) Supported orientations
+orientation = portrait
+
+# (list) Permissions
+# Needed for Steam API and Sale Notifications
+android.permissions = INTERNET, FOREGROUND_SERVICE, VIBRATE, POST_NOTIFICATIONS
+
+# (int) Android API to use
 android.api = 33
 
-# (int) Minimum API
+# (int) Minimum API your APK will support
 android.minapi = 21
 
-# (str) Android NDK version (Required for Python 3.11)
-android.ndk = 25b
+# (str) Android logcat filters to use
+android.logcat_filters = *:S python:D
 
-# (str) Android SDK version
-android.sdk = 33
+# (bool) Copy library instead of making a libpymodules.so
+android.copy_libs = 1
 
-# (bool) Use the private storage for your app (Required for Android 10+)
-android.private_storage = True
+# (str) The Android arch to build for
+android.archs = arm64-v8a, armeabi-v7a
 
-# (int) Log level (Set to 2 for better debugging if it crashes)
+# (list) The Android themes to apply
+android.theme = @android:style/Theme.NoTitleBar.Fullscreen
+
+[buildozer]
+# (int) Log level (0 = error only, 1 = info, 2 = debug)
 log_level = 2
 
-# (str) Android entry point
-android.entrypoint = org.kivy.android.PythonActivity
-
-# (list) Supported orientations
-orientation = portrait
+# (int) Display warning if buildozer is run as root (0 = off, 1 = on)
+warn_on_root = 1
