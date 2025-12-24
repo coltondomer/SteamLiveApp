@@ -8,47 +8,49 @@ package.name = steamlive
 # (str) Package domain (needed for android packaging)
 package.domain = org.gamertools
 
-# (str) Source code where the main.py live
+# (str) Source code where the main.py lives
 source.dir = .
 
-# (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,json
+# (list) Source files to include
+source.include_exts = py,png,jpg,json,txt
 
 # (str) Application versioning
-version = 1.0.0
+version = 1.1.0
 
 # (list) Application requirements
-# IMPORTANT: These must match the libraries used in the code
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,plyer
+# Added certifi and charset-normalizer to prevent SSL network errors
+requirements = python3,kivy==2.3.0,requests,certifi,charset-normalizer,idna,urllib3,plyer
 
 # (str) Custom source file for application icon
-# Make sure your image is named icon.png in the same folder!
 icon.filename = icon.png
 
 # (str) Supported orientations
 orientation = portrait
 
 # (list) Permissions
-# Needed for Steam API and Sale Notifications
-android.permissions = INTERNET, FOREGROUND_SERVICE, VIBRATE, POST_NOTIFICATIONS
+android.permissions = INTERNET, FOREGROUND_SERVICE, POST_NOTIFICATIONS
 
+# --- STABILITY SETTINGS ---
 # (int) Android API to use
 android.api = 33
 
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# (str) Android logcat filters to use
-android.logcat_filters = *:S python:D
+# (str) Android NDK version to use (SPECIFIC VERSION PREVENTS TIMEOUTS)
+android.ndk = 25b
 
-# (bool) Copy library instead of making a libpymodules.so
-android.copy_libs = 1
+# (bool) Use the shared hide-sensitive-information feature
+android.skip_update = False
 
-# (str) The Android arch to build for
+# (bool) Accept SDK license
+android.accept_sdk_license = True
+
+# (str) The Android archs to build for
 android.archs = arm64-v8a, armeabi-v7a
 
-# (list) The Android themes to apply
-android.theme = @android:style/Theme.NoTitleBar.Fullscreen
+# (bool) indicates if the application should be allowed to exit when the user presses the back button
+android.allow_backup = True
 
 [buildozer]
 # (int) Log level (0 = error only, 1 = info, 2 = debug)
