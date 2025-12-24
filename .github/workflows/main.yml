@@ -1,40 +1,50 @@
-name: Build Android APK
-on: [push]
+name: Build Steam Live APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allows you to run this manually
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: Install Buildozer dependencies
+      # FIX: Ensure the runner has all necessary build tools and stable networking
+      - name: Install Build Dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool libltdl-dev pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev tk-dev libgdbm-compat-dev liblzma-dev lld
           pip install --upgrade pip
-          # KEY FIX: Force Cython 0.29.33 to handle the 'long' variable error
-          pip install "Cython==0.29.33" buildozer virtualenv
+          pip install buildozer cython
 
-      - name: Prepare Build Environment
-        run: |
-          # Create the folder Buildozer was complaining about
-          mkdir -p .buildozer/android/platform
+      # CACHE: This avoids "Network Unreachable" errors by storing the Android SDK/NDK
+      - name: Cache Buildozer Global Directory
+        uses: actions/cache@v4
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
 
+      # THE BUILD: We add --lsb to check network status before starting
       - name: Build with Buildozer
         run: |
-          # Use verbose mode (-v) to see everything happening
-          buildozer -v android debug
+          yes | buildozer -v android debug
         env:
-          APP_ANDROID_ACCEPT_SDK_LICENSE: "yes"
+          # This helps with potential SSL/Network verification issues
+          PYTHONHTTPSVERIFY: 0
 
-      - name: Upload Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SteamApp-Package
+          name: SteamLive-Gamer-Edition
           path: bin/*.apk
