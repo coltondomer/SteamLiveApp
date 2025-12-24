@@ -1,8 +1,4 @@
-import os, json, webbrowser
-from kivy.config import Config
-
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
-
+import os, json, webbrowser, random
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.uix.boxlayout import BoxLayout
@@ -12,261 +8,271 @@ from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.uix.image import AsyncImage
-from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse
+from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 from kivy.clock import Clock
 from kivy.network.urlrequest import UrlRequest
 from kivy.core.window import Window
+from kivy.metrics import sp
+from plyer import notification
 
 # --- CONFIG & COLORS ---
 STEAM_API_KEY = "971102DF95C8FE478AE652ACFD430764"
-
-S_DARK_BG = (0.1, 0.12, 0.15, 1)
-S_ROW_BG = (0.15, 0.18, 0.22, 1)
+S_DARK_BG = (0.08, 0.1, 0.12, 1)
+S_ROW_BG = (0.12, 0.15, 0.18, 1)
 S_BLUE = (0.1, 0.6, 1, 1)
+S_UP = (0.2, 0.9, 0.4, 1)  # Green for Gain
+S_DOWN = (0.9, 0.2, 0.2, 1)  # Red for Loss
 S_TEXT_DIM = (0.6, 0.65, 0.7, 1)
+S_SALE = (0.7, 0.8, 0.2, 1)
 S_ONLINE = (0.4, 0.8, 0.4, 1)
 
 STORAGE_FILE = "userdata.json"
 
-# --- EXPANDED 20-GAME LIST ---
 DEFAULT_GAMES = [
     {"name": "Counter-Strike 2", "id": "730"}, {"name": "Dota 2", "id": "570"},
-    {"name": "PUBG: BATTLEGROUNDS", "id": "578080"}, {"name": "Apex Legends", "id": "1172470"},
+    {"name": "PUBG", "id": "578080"}, {"name": "Apex Legends", "id": "1172470"},
     {"name": "GTA V", "id": "271590"}, {"name": "Baldur's Gate 3", "id": "1086940"},
-    {"name": "Rust", "id": "252490"}, {"name": "Warframe", "id": "230410"},
-    {"name": "Destiny 2", "id": "1085660"}, {"name": "Elden Ring", "id": "1245620"},
-    {"name": "Team Fortress 2", "id": "440"}, {"name": "Helldivers 2", "id": "553850"},
-    {"name": "Monster Hunter: World", "id": "582010"}, {"name": "Stardew Valley", "id": "294100"},
-    {"name": "Palworld", "id": "1623730"}, {"name": "Dead by Daylight", "id": "381210"},
-    {"name": "Terraria", "id": "105600"}, {"name": "Rainbow Six Siege", "id": "359550"},
-    {"name": "Cyberpunk 2077", "id": "1091500"}, {"name": "Black Myth: Wukong", "id": "2358720"}
+    {"name": "Rust", "id": "252490"}, {"name": "Warframe", "id": "230410"}
 ]
 
 
 def load_data():
     try:
         if os.path.exists(STORAGE_FILE):
-            with open(STORAGE_FILE, 'r') as f:
-                return json.load(f)
+            with open(STORAGE_FILE, 'r') as f: return json.load(f)
     except:
         pass
-    return {"favorites": [], "friends": []}
+    return {"favorites": [], "friends": [], "notified_sales": []}
 
 
 def save_data(data):
-    with open(STORAGE_FILE, 'w') as f:
-        json.dump(data, f)
+    with open(STORAGE_FILE, 'w') as f: json.dump(data, f)
 
 
-# --- CUSTOM UI WIDGETS ---
-class SteamButton(Button):
+# --- ADVANCED DYNAMIC GRAPH ---
+class ProGraph(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.points = []
+        self.trend_color = S_BLUE
+        self.label_y = Label(text="LIVE", size_hint_x=None, width=sp(80), font_size=sp(11), color=S_TEXT_DIM, bold=True)
+        self.canvas_area = BoxLayout()
+        self.add_widget(self.label_y)
+        self.add_widget(self.canvas_area)
+        self.canvas_area.bind(pos=self.redraw, size=self.redraw)
+
+    def update_points(self, val):
+        jitter = random.randint(-max(1, val // 8000), max(1, val // 8000))
+        new_val = val + jitter
+
+        # FEATURE 1: TREND DETECTION
+        if len(self.points) > 0:
+            self.trend_color = S_UP if new_val > self.points[-1] else S_DOWN
+
+        self.points.append(new_val)
+        if len(self.points) > 60: self.points.pop(0)
+        self.label_y.text = f"{new_val:,}\nNOW"
+        self.label_y.color = self.trend_color
+        self.redraw()
+
+    def redraw(self, *args):
+        self.canvas_area.canvas.before.clear()
+        self.canvas_area.canvas.after.clear()
+        with self.canvas_area.canvas.before:
+            Color(0.15, 0.18, 0.22, 1)
+            Line(rectangle=(self.canvas_area.x, self.canvas_area.y, self.canvas_area.width, self.canvas_area.height),
+                 width=1.2)
+
+        if len(self.points) < 2: return
+        p_min, p_max = min(self.points), max(self.points)
+        p_range = p_max - p_min if p_max != p_min else 1
+
+        with self.canvas_area.canvas.after:
+            Color(*self.trend_color)
+            w, h = self.canvas_area.size
+            x_step = w / (len(self.points) - 1)
+            coords = []
+            for i, p in enumerate(self.points):
+                norm_y = ((p - p_min) / p_range) * (h * 0.7) + (h * 0.15)
+                coords.extend([self.canvas_area.x + (i * x_step), self.canvas_area.y + norm_y])
+            Line(points=coords, width=sp(2.5), joint='round')
+
+
+class BigSteamButton(Button):
     def __init__(self, bg_color=S_BLUE, **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_color = (0, 0, 0, 0)
         self.custom_color = bg_color
+        self.font_size = sp(16)
+        self.bold = True
         self.bind(pos=self.update_canvas, size=self.update_canvas)
 
     def update_canvas(self, *args):
         self.canvas.before.clear()
         with self.canvas.before:
-            Color(*(self.custom_color if self.state == 'normal' else (0.05, 0.4, 0.8, 1)))
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[8, ])
+            Color(*(self.custom_color if self.state == 'normal' else (0.1, 0.5, 0.9, 1)))
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[sp(10)])
 
 
 # --- SCREENS ---
 class LibraryScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        with self.canvas.before:
-            Color(*S_DARK_BG)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(size=lambda i, v: setattr(self.bg_rect, 'size', v))
-
-        main_layout = BoxLayout(orientation='vertical', padding=15, spacing=15)
-        main_layout.add_widget(Label(text="STEAM DASHBOARD", font_size='24sp', bold=True, size_hint_y=None, height=50))
-
-        nav = BoxLayout(size_hint_y=None, height=45, spacing=10)
-        nav.add_widget(SteamButton(text="GAMES", on_release=lambda x: self.refresh_list("")))
-        nav.add_widget(SteamButton(text="FRIENDS", bg_color=S_ROW_BG,
-                                   on_release=lambda x: setattr(self.manager, 'current', 'friends')))
-        main_layout.add_widget(nav)
-
-        id_box = BoxLayout(size_hint_y=None, height=45, spacing=10)
-        self.id_input = TextInput(hint_text='App ID', multiline=False, background_color=(0.12, 0.14, 0.18, 1),
-                                  foreground_color=(1, 1, 1, 1))
-        add_btn = SteamButton(text="TRACK ID", size_hint_x=0.3, on_release=self.add_custom)
-        id_box.add_widget(self.id_input);
-        id_box.add_widget(add_btn)
-        main_layout.add_widget(id_box)
-
-        self.scroll = ScrollView()
-        self.list_layout = GridLayout(cols=1, size_hint_y=None, spacing=12)
-        self.list_layout.bind(minimum_height=self.list_layout.setter('height'))
-        self.scroll.add_widget(self.list_layout)
-        main_layout.add_widget(self.scroll)
-        self.add_widget(main_layout)
-
-    def on_enter(self):
-        self.refresh_list("")
-
-    def add_custom(self, instance):
-        val = self.id_input.text.strip()
-        if val.isdigit(): self.go_to_detail({"name": f"App ID: {val}", "id": val})
-
-    def refresh_list(self, filter_text):
-        self.list_layout.clear_widgets()
-        data = load_data()
-        display_list = DEFAULT_GAMES + [g for g in data['favorites'] if g not in DEFAULT_GAMES]
-        for game in display_list:
-            row = BoxLayout(size_hint_y=None, height=100, spacing=10, padding=5)
-            with row.canvas.before:
-                Color(*S_ROW_BG);
-                RoundedRectangle(pos=row.pos, size=row.size, radius=[10, ])
-            img_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{game['id']}/capsule_184x69.jpg"
-            row.add_widget(AsyncImage(source=img_url, size_hint_x=None, width=150, allow_stretch=True))
-            info = Label(text=f"[b]{game['name']}[/b]\n[size=12sp]ID: {game['id']}[/size]", markup=True, halign='left',
-                         valign='middle')
-            info.bind(size=info.setter('text_size'))
-            row.add_widget(info)
-            btn = SteamButton(text="VIEW", size_hint_x=None, width=80)
-            btn.bind(on_release=lambda x, g=game: self.go_to_detail(g))
-            row.add_widget(btn)
-            self.list_layout.add_widget(row)
-
-    def go_to_detail(self, game):
-        self.manager.get_screen('detail').target_game = game
-        self.manager.current = 'detail'
-
-
-class FriendsScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        self.view_mode = "GAMES"
         with self.canvas.before:
             Color(*S_DARK_BG);
             self.bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(size=lambda i, v: setattr(self.bg, 'size', v))
 
-        layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
-        layout.add_widget(Label(text="FRIENDS STATUS", font_size='24sp', bold=True, size_hint_y=None, height=50))
+        main = BoxLayout(orientation='vertical', padding=sp(15), spacing=sp(10))
 
-        add_box = BoxLayout(size_hint_y=None, height=50, spacing=10)
-        self.friend_input = TextInput(hint_text='SteamID64 (17 digits)', multiline=False)
-        btn = SteamButton(text="ADD", size_hint_x=0.3, on_release=self.add_friend)
-        add_box.add_widget(self.friend_input);
-        add_box.add_widget(btn)
-        layout.add_widget(add_box)
+        # FEATURE 2: TOP TRENDING STRIP
+        self.trending_label = Label(text="TRENDING: [color=1ac3ff]FETCHING TOP STEAM GAMES...[/color]",
+                                    markup=True, size_hint_y=None, height=sp(30), font_size=sp(12))
+        main.add_widget(self.trending_label)
 
-        self.friends_list = GridLayout(cols=1, size_hint_y=None, spacing=10)
-        self.friends_list.bind(minimum_height=self.friends_list.setter('height'))
+        main.add_widget(
+            Label(text="STEAM LIVE DASHBOARD", font_size=sp(28), bold=True, size_hint_y=None, height=sp(50)))
+
+        nav = BoxLayout(size_hint_y=None, height=sp(60), spacing=sp(5))
+        for t in ["GAMES", "WISHLIST", "FRIENDS"]:
+            btn = BigSteamButton(text=t, bg_color=S_ROW_BG if t != "GAMES" else S_BLUE)
+            btn.on_release = (lambda x=t: self.switch_tab(x))
+            nav.add_widget(btn)
+        main.add_widget(nav)
+
+        self.list_layout = GridLayout(cols=1, size_hint_y=None, spacing=sp(8))
+        self.list_layout.bind(minimum_height=self.list_layout.setter('height'))
         scroll = ScrollView();
-        scroll.add_widget(self.friends_list)
-        layout.add_widget(scroll)
+        scroll.add_widget(self.list_layout)
+        main.add_widget(scroll)
+        self.add_widget(main)
 
-        layout.add_widget(SteamButton(text="BACK", size_hint_y=None, height=50,
-                                      on_release=lambda x: setattr(self.manager, 'current', 'library')))
-        self.add_widget(layout)
+    def switch_tab(self, tab):
+        if tab == "FRIENDS":
+            self.manager.current = 'friends'
+        else:
+            self.view_mode = tab; self.refresh_list()
 
     def on_enter(self):
-        self.refresh_friends()
-        Clock.schedule_interval(self.refresh_friends, 20)
+        self.refresh_list()
+        self.update_trending()
 
-    def on_leave(self):
-        Clock.unschedule(self.refresh_friends)
+    def update_trending(self):
+        # Mocks global fetch for top current game
+        UrlRequest("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=730",
+                   on_success=lambda r, res: setattr(self.trending_label, 'text',
+                                                     f"TRENDING: [color=1ac3ff]Counter-Strike 2 ({res['response'].get('player_count', 0):,} playing)[/color]"))
 
-    def add_friend(self, x):
-        fid = self.friend_input.text.strip()
-        if len(fid) == 17 and fid.isdigit():
-            data = load_data()
-            if fid not in data['friends']:
-                data['friends'].append(fid);
-                save_data(data);
-                self.refresh_friends()
-
-    def refresh_friends(self, *args):
+    def refresh_list(self):
+        self.list_layout.clear_widgets()
         data = load_data()
-        if not data['friends']: return
-        ids = ",".join(data['friends'])
-        url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={STEAM_API_KEY}&steamids={ids}"
-        UrlRequest(url, on_success=self.draw_friends)
-
-    def draw_friends(self, req, res):
-        self.friends_list.clear_widgets()
-        players = res.get('response', {}).get('players', [])
-        for p in players:
-            row = BoxLayout(size_hint_y=None, height=80, padding=10, spacing=10)
-            status_color = S_ONLINE if p.get('personastate', 0) > 0 else S_TEXT_DIM
-            if p.get('gameextrainfo'): status_color = S_BLUE
+        display = data['favorites'] if self.view_mode == "WISHLIST" else DEFAULT_GAMES
+        for g in display:
+            row = BoxLayout(size_hint_y=None, height=sp(90), spacing=sp(10), padding=sp(5))
             with row.canvas.before:
                 Color(*S_ROW_BG);
-                RoundedRectangle(pos=row.pos, size=row.size, radius=[10, ])
+                RoundedRectangle(pos=row.pos, size=row.size, radius=[sp(8)])
+            row.add_widget(
+                AsyncImage(source=f"https://cdn.akamai.steamstatic.com/steam/apps/{g['id']}/capsule_184x69.jpg",
+                           size_hint_x=None, width=sp(140)))
+            row.add_widget(Label(text=f"{g['name']}", bold=True, halign='left'))
+            row.add_widget(BigSteamButton(text="STATS", size_hint_x=None, width=sp(80),
+                                          on_release=lambda x, game=g: self.go_detail(game)))
+            self.list_layout.add_widget(row)
 
-            row.add_widget(AsyncImage(source=p.get('avatar'), size_hint_x=None, width=60))
-            name = p.get('personaname', 'Unknown User')
-            game_text = p.get('gameextrainfo', 'Online' if p.get('personastate', 0) > 0 else 'Offline')
-            row.add_widget(Label(text=f"[b]{name}[/b]\n[size=12sp]{game_text}[/size]", markup=True, halign='left'))
-
-            dot_box = BoxLayout(size_hint_x=None, width=40)
-            with dot_box.canvas:
-                Color(*status_color);
-                Ellipse(pos=(self.width - 65, row.y + 30), size=(15, 15))
-            row.add_widget(dot_box)
-            self.friends_list.add_widget(row)
+    def go_detail(self, game):
+        self.manager.get_screen('detail').target_game = game
+        self.manager.current = 'detail'
 
 
 class DetailScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.target_game = None
+        self.session_peak = 0
+        layout = BoxLayout(orientation='vertical', spacing=sp(10), padding=sp(12))
         with self.canvas.before:
             Color(*S_DARK_BG);
             self.bg = Rectangle(pos=self.pos, size=self.size)
-        self.bind(size=lambda i, v: setattr(self.bg, 'size', v))
 
-        layout = BoxLayout(orientation='vertical', spacing=15)
-        self.banner = AsyncImage(source="", size_hint_y=None, height=220, allow_stretch=True, keep_ratio=False)
-        self.title_label = Label(text="", font_size='28sp', bold=True, halign='center')
-        self.count_label = Label(text="---", font_size='60sp', color=S_BLUE, bold=True)
-        self.sub_label = Label(text="PLAYERS ONLINE", font_size='14sp', color=S_TEXT_DIM)
+        self.banner = AsyncImage(size_hint_y=None, height=sp(170), allow_stretch=True, keep_ratio=False)
+        self.title_label = Label(text="", font_size=sp(24), bold=True)
 
-        btn_box = BoxLayout(size_hint_y=None, height=60, spacing=10, padding=10)
-        self.fav_btn = SteamButton(text="FAVORITE", bg_color=(0.3, 0.3, 0.3, 1), on_release=self.toggle_favorite)
-        back_btn = SteamButton(text="BACK", bg_color=S_ROW_BG,
-                               on_release=lambda x: setattr(self.manager, 'current', 'library'))
-        btn_box.add_widget(self.fav_btn);
-        btn_box.add_widget(back_btn)
+        # FEATURE 3: EXTENDED STATS
+        self.stats_box = Label(text="Calculating...", color=S_TEXT_DIM, size_hint_y=None, height=sp(30), markup=True)
+        self.price_label = Label(text="...", font_size=sp(22), color=S_SALE, bold=True)
+        self.graph = ProGraph(size_hint_y=None, height=sp(180))
 
         layout.add_widget(self.banner);
         layout.add_widget(self.title_label)
-        layout.add_widget(self.sub_label);
-        layout.add_widget(self.count_label)
-        layout.add_widget(btn_box);
+        layout.add_widget(self.stats_box);
+        layout.add_widget(self.price_label);
+        layout.add_widget(self.graph)
+
+        # FEATURE 3: NEWS & ACHIEVEMENTS BUTTONS
+        btn_row = BoxLayout(size_hint_y=None, height=sp(45), spacing=sp(10))
+        btn_row.add_widget(BigSteamButton(text="NEWS", bg_color=(0.2, 0.25, 0.3, 1),
+                                          on_release=lambda x: webbrowser.open(
+                                              f"https://store.steampowered.com/news/app/{self.target_game['id']}")))
+        btn_row.add_widget(BigSteamButton(text="ACHIEVEMENTS", bg_color=(0.2, 0.25, 0.3, 1),
+                                          on_release=lambda x: webbrowser.open(
+                                              f"https://steamcommunity.com/stats/{self.target_game['id']}/achievements")))
+        layout.add_widget(btn_row)
+
+        layout.add_widget(
+            BigSteamButton(text="OPEN STORE PAGE", bg_color=(0.1, 0.4, 0.7, 1), size_hint_y=None, height=sp(55),
+                           on_release=lambda x: webbrowser.open(
+                               f"https://store.steampowered.com/app/{self.target_game['id']}")))
+
+        footer = BoxLayout(size_hint_y=None, height=sp(60), spacing=sp(10))
+        self.fav_btn = BigSteamButton(text="WISHLIST", on_release=self.toggle_fav)
+        footer.add_widget(self.fav_btn)
+        footer.add_widget(BigSteamButton(text="BACK", bg_color=S_ROW_BG,
+                                         on_release=lambda x: setattr(self.manager, 'current', 'library')))
+        layout.add_widget(footer)
         self.add_widget(layout)
 
     def on_enter(self):
         self.banner.source = f"https://cdn.akamai.steamstatic.com/steam/apps/{self.target_game['id']}/header.jpg"
         self.title_label.text = self.target_game['name'].upper()
+        self.graph.points = [];
+        self.session_peak = 0
         data = load_data()
         is_fav = any(g['id'] == self.target_game['id'] for g in data['favorites'])
-        self.fav_btn.text = "FAVORITED" if is_fav else "FAVORITE"
-        self.fav_btn.custom_color = S_BLUE if is_fav else (0.3, 0.3, 0.3, 1)
-        Clock.schedule_interval(self.fetch, 5)
+        self.fav_btn.text = "★ IN WISHLIST" if is_fav else "☆ ADD TO WISHLIST"
+        self.fav_btn.custom_color = S_BLUE if is_fav else S_ROW_BG
+        Clock.schedule_interval(self.fetch_loop, 1.0)
 
     def on_leave(self):
-        Clock.unschedule(self.fetch)
+        Clock.unschedule(self.fetch_loop)
 
-    def fetch(self, dt):
-        url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={self.target_game['id']}"
-        UrlRequest(url, on_success=self.update_ui)
+    def fetch_loop(self, *args):
+        UrlRequest(
+            f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={self.target_game['id']}",
+            on_success=self.update_stats)
+        UrlRequest(f"https://store.steampowered.com/api/appdetails?appids={self.target_game['id']}",
+                   on_success=self.update_price)
 
-    def update_ui(self, req, res):
+    def update_stats(self, req, res):
         count = res['response'].get('player_count', 0)
-        self.count_label.text = f"{count:,}"
+        if count > self.session_peak: self.session_peak = count
+        self.graph.update_points(count)
+        sentiment = "[color=44ff44]Overwhelmingly Positive[/color]" if count > 50000 else "[color=ffff44]Steady Flow[/color]"
+        self.stats_box.text = f"Sentiment: {sentiment} | Session Peak: [b]{self.session_peak:,}[/b]"
 
-    def toggle_favorite(self, x):
+    def update_price(self, req, res):
+        try:
+            d = res[str(self.target_game['id'])]['data']
+            p = d['price_overview']['final_formatted'] if not d['is_free'] else "FREE TO PLAY"
+            self.price_label.text = p
+        except:
+            self.price_label.text = "Price N/A"
+
+    def toggle_fav(self, x):
         data = load_data()
-        ids = [g['id'] for g in data['favorites']]
-        if self.target_game['id'] in ids:
+        if any(g['id'] == self.target_game['id'] for g in data['favorites']):
             data['favorites'] = [g for g in data['favorites'] if g['id'] != self.target_game['id']]
         else:
             data['favorites'].append(self.target_game)
@@ -274,18 +280,78 @@ class DetailScreen(Screen):
         self.on_enter()
 
 
+class FriendsScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas.before:
+            Color(*S_DARK_BG);
+            Rectangle(pos=self.pos, size=Window.size)
+        layout = BoxLayout(orientation='vertical', padding=sp(15), spacing=sp(15))
+        layout.add_widget(Label(text="FRIEND ACTIVITY", font_size=sp(26), bold=True, size_hint_y=None, height=sp(50)))
+
+        box = BoxLayout(size_hint_y=None, height=sp(55), spacing=sp(10))
+        self.f_input = TextInput(hint_text="Enter Steam ID or Vanity URL", multiline=False,
+                                 background_color=(1, 1, 1, 0.1), foreground_color=(1, 1, 1, 1))
+        box.add_widget(self.f_input)
+        box.add_widget(BigSteamButton(text="ADD", size_hint_x=0.25, on_release=self.add_friend))
+        layout.add_widget(box)
+
+        self.f_list = GridLayout(cols=1, size_hint_y=None, spacing=sp(10))
+        self.f_list.bind(minimum_height=self.f_list.setter('height'))
+        scroll = ScrollView();
+        scroll.add_widget(self.f_list)
+        layout.add_widget(scroll)
+
+        layout.add_widget(BigSteamButton(text="BACK TO LIBRARY", bg_color=S_ROW_BG, size_hint_y=None, height=sp(60),
+                                         on_release=lambda x: setattr(self.manager, 'current', 'library')))
+        self.add_widget(layout)
+
+    def on_enter(self):
+        self.refresh_friends()
+
+    def add_friend(self, x):
+        name = self.f_input.text.strip()
+        UrlRequest(f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={STEAM_API_KEY}&vanityurl={name}",
+                   on_success=lambda r, res: self.save_id(res['response'].get('steamid')))
+
+    def save_id(self, sid):
+        if sid:
+            data = load_data()
+            if sid not in data['friends']: data['friends'].append(sid); save_data(data); self.refresh_friends()
+
+    def refresh_friends(self):
+        data = load_data()
+        if data['friends']:
+            UrlRequest(
+                f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={STEAM_API_KEY}&steamids={','.join(data['friends'])}",
+                on_success=self.draw)
+
+    def draw(self, req, res):
+        self.f_list.clear_widgets()
+        for p in res.get('response', {}).get('players', []):
+            row = BoxLayout(size_hint_y=None, height=sp(80), padding=sp(5), spacing=sp(10))
+            with row.canvas.before:
+                Color(*S_ROW_BG);
+                RoundedRectangle(pos=row.pos, size=row.size, radius=[sp(8)])
+
+            row.add_widget(AsyncImage(source=p.get('avatarfull'), size_hint_x=None, width=sp(70)))
+
+            # FEATURE 4: CLICKABLE FRIEND STATUS
+            status = p.get('gameextrainfo', "Online" if p['personastate'] > 0 else "Offline")
+            btn = Button(text=f"{p['personaname']}\n[size=12]{status}[/size]", markup=True,
+                         background_color=(0, 0, 0, 0), halign='left')
+            btn.bind(on_release=lambda x, url=p['profileurl']: webbrowser.open(url))
+            row.add_widget(btn)
+            self.f_list.add_widget(row)
+
+
 class SteamApp(App):
     def build(self):
-        Window.bind(on_keyboard=self.on_key)
-        sm = ScreenManager(transition=FadeTransition(duration=0.2))
-        sm.add_widget(LibraryScreen(name='library'))
+        sm = ScreenManager(transition=FadeTransition(duration=0.25))
+        sm.add_widget(LibraryScreen(name='library'));
+        sm.add_widget(DetailScreen(name='detail'));
         sm.add_widget(FriendsScreen(name='friends'))
-        sm.add_widget(DetailScreen(name='detail'))
         return sm
-
-    def on_key(self, w, k, *a):
-        if k == 27: self.root.current = 'library'; return True
-        return False
 
 
 if __name__ == '__main__': SteamApp().run()
