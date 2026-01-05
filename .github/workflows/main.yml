@@ -25,26 +25,18 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      # This ensures the buildozer folder exists before we try to cache it
-      - name: Pre-build Setup
-        run: mkdir -p .buildozer
+      - name: Create Build Environment
+        run: |
+          mkdir -p bin
+          mkdir -p .buildozer
 
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-
-      # FIX: Instead of 'yes |', we use the built-in buildozer automation 
-      # and increase the network timeout
+      # This is the "Magic" fix for license hangs
       - name: Build with Buildozer
         run: |
           buildozer android debug
         env:
           APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
-          # Increases stability for large downloads
-          HTTP_PROXY: ""
-          HTTPS_PROXY: ""
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
