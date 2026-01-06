@@ -1,35 +1,25 @@
 [app]
-# --- Basic Info ---
-title = Steam Live Dashboard
+title = Steam Live
 package.name = steamlive
-package.domain = org.gamertools
+package.domain = org.colton
 source.dir = .
 source.include_exts = py,png,jpg,json,txt
 version = 1.1.0
 
-# --- Requirements ---
-# We include certifi and urllib3 explicitly to handle the Steam API SSL handshake on Android
+# Critical: Added certifi and charset-normalizer for network stability
 requirements = python3,kivy==2.3.0,requests,certifi,charset-normalizer,idna,urllib3,plyer
 
-# --- Visuals ---
-# IMPORTANT: Ensure icon.png exists in your repo or comment this line out with #
-icon.filename = icon.png
 orientation = portrait
+android.permissions = INTERNET, POST_NOTIFICATIONS, FOREGROUND_SERVICE
 
-# --- Android Specifics ---
-android.permissions = INTERNET, FOREGROUND_SERVICE, POST_NOTIFICATIONS
+# --- STABLE COMPILER SETTINGS ---
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
-android.ndk_path = 
-android.sdk_path = 
 android.accept_sdk_license = True
-android.skip_update = False
-android.archs = arm64-v8a, armeabi-v7a
 
-# --- Styling ---
-android.theme = @android:style/Theme.NoTitleBar.Fullscreen
-android.allow_backup = True
+# Build only for modern phones to save time
+android.archs = arm64-v8a
 
 [buildozer]
 log_level = 2
