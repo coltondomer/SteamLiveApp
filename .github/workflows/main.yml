@@ -1,4 +1,4 @@
-name: Build Steam Live APK
+name: Build and Release SteamLive
 
 on:
   push:
@@ -27,14 +27,28 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev tk-dev libgdbm-compat-dev liblzma-dev lld
+          sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev \
+          libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev \
+          libffi-dev libsqlite3-dev tk-dev libgdbm-compat-dev liblzma-dev lld
           pip install --upgrade pip
           pip install buildozer cython==0.29.33
 
-      - name: Build with Buildozer
+      - name: Build APK with Buildozer
         run: |
-          buildozer android debug
+          buildozer -v android debug
         env:
           APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
-          # This ensures Buildozer uses the Java version we just set up
           JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
+
+      # THIS STEP REPLACES THE ZIP DOWNLOAD
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "SteamLive: Latest Version"
+          body: "Direct APK download. No unzipping required. Just download and install."
+          files: bin/*.apk
+          # This ensures it updates the same release instead of failing
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
